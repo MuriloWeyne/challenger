@@ -67,11 +67,18 @@ def get_ranked_info():
     session.mount(url, HTTPAdapter(max_retries=Retry(connect=30, backoff_factor=0.5, status_forcelist=[404, 500, 502, 503, 504])))
     response = session.get(url, verify=False, headers=headers).json()
     ranked_stats = response["queueMap"]["RANKED_SOLO_5x5"]
-    summoner_rank = ranked_stats["tier"] + " " + ranked_stats["division"]
-    summoner_lp = ranked_stats["leaguePoints"]
+    if ranked_stats["tier"] == "":
+        summoner_rank = "UNRANKED"
+        summoner_lp = "0"
+    else:
+        summoner_rank = ranked_stats["tier"] + " " + ranked_stats["division"]
+        summoner_lp = ranked_stats["leaguePoints"]
     summoner_wins = ranked_stats["wins"]
     summoner_losses = ranked_stats["losses"]
-    summoner_winrate = str(round((int(ranked_stats["wins"])/int(ranked_stats["wins"] + int(ranked_stats["losses"])))*100, 2)) + "%"
+    if summoner_wins == 0 or summoner_losses == 0:
+        summoner_winrate = "UNRANKED"
+    else:
+        summoner_winrate = str(round((int(ranked_stats["wins"])/int(ranked_stats["wins"] + int(ranked_stats["losses"])))*100, 2)) + "%"
     return summoner_rank, summoner_lp, summoner_wins, summoner_losses, summoner_winrate
 
 def get_currencies():

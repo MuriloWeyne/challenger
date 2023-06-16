@@ -130,7 +130,7 @@ def update_json_data(id):
     # Get the summoner name
     summoner_name, summoner_level = leaguefunctions.get_summoner_data()
     summoner_rank, summoner_lp, summoner_wins, summoner_losses, summoner_winrate = leaguefunctions.get_ranked_info()
-    summoner_rp, summoner_be = leaguefunctions.get_currencies()
+    summoner_be, summoner_rp = leaguefunctions.get_currencies()
 
     if os.path.exists("accounts.json"):
         with open("accounts.json", "r") as accounts_file:

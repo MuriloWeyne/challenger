@@ -76,7 +76,7 @@ def get_ranked_info():
     summoner_wins = ranked_stats["wins"]
     summoner_losses = ranked_stats["losses"]
     if summoner_wins == 0 or summoner_losses == 0:
-        summoner_winrate = "UNRANKED"
+        summoner_winrate = "0%"
     else:
         summoner_winrate = str(round((int(ranked_stats["wins"])/int(ranked_stats["wins"] + int(ranked_stats["losses"])))*100, 2)) + "%"
     return summoner_rank, summoner_lp, summoner_wins, summoner_losses, summoner_winrate

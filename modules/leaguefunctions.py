@@ -20,11 +20,15 @@ def get_lock_file():
                 return lock_file_data
         
 def encrypt_headers():
+    while get_lock_file() == None:
+        time.sleep(1)
     password = get_lock_file()[3]
     base64 = b64encode(bytes(f"riot:{password}", "UTF-8"))
     return {"Authorization": f"Basic {base64.decode('ASCII')}"}
 
 def get_url(end_point: str) -> str:
+    while get_lock_file() == None:
+        time.sleep(1)
     method = get_lock_file()[4]
     port = get_lock_file()[2]
     return f"{method}://127.0.0.1:{port}/{end_point}"
@@ -34,7 +38,7 @@ def get_summoner_id():
     headers = encrypt_headers()
     url = get_url(summoner_ep)
     session.mount(url, HTTPAdapter(max_retries=Retry(connect=30, backoff_factor=0.5, status_forcelist=[404, 500, 502, 503, 504])))
-    response = session.get(url, verify=False, headers=headers)
+    response = session.get(url, verify=False, headers=headers).json()
     return response["summonerId"]
 
 def get_summoner_puuid():
@@ -42,7 +46,7 @@ def get_summoner_puuid():
     headers = encrypt_headers()
     url = get_url(summoner_ep)
     session.mount(url, HTTPAdapter(max_retries=Retry(connect=30, backoff_factor=0.5, status_forcelist=[404, 500, 502, 503, 504])))
-    response = session.get(url, verify=False, headers=headers)
+    response = session.get(url, verify=False, headers=headers).json()
     return response["puuid"]
 
 def get_summoner_data():
@@ -50,7 +54,7 @@ def get_summoner_data():
     headers = encrypt_headers()
     url = get_url(summoner_ep)
     session.mount(url, HTTPAdapter(max_retries=Retry(connect=30, backoff_factor=0.5, status_forcelist=[404, 500, 502, 503, 504])))
-    response = session.get(url, verify=False, headers=headers)
+    response = session.get(url, verify=False, headers=headers).json()
     summoner_name = response["displayName"]
     summoner_level = response["summonerLevel"]
     return summoner_name, summoner_level
@@ -61,8 +65,7 @@ def get_ranked_info():
     headers = encrypt_headers()
     url = get_url(ranked_ep)
     session.mount(url, HTTPAdapter(max_retries=Retry(connect=30, backoff_factor=0.5, status_forcelist=[404, 500, 502, 503, 504])))
-    response = session.get(url, verify=False, headers=headers)
-    
+    response = session.get(url, verify=False, headers=headers).json()
     ranked_stats = response["queueMap"]["RANKED_SOLO_5x5"]
     summoner_rank = ranked_stats["tier"] + " " + ranked_stats["division"]
     summoner_lp = ranked_stats["leaguePoints"]
@@ -76,7 +79,7 @@ def get_currencies():
     headers = encrypt_headers()
     url = get_url(currency_ep)
     session.mount(url, HTTPAdapter(max_retries=Retry(connect=30, backoff_factor=0.5, status_forcelist=[404, 500, 502, 503, 504])))
-    response = session.get(url, verify=False, headers=headers)
+    response = session.get(url, verify=False, headers=headers).json()
     be_amount = response["ip"]
     rp_amount = response["rp"]
     if be_amount >= 1000:

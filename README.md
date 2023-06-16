@@ -9,5 +9,5 @@ Login button opens League of Legends and signs in your account automatically.
 
 ## Demo
 
-[![Watch the video](https://img.youtube.com/vi/aZsgSvS33nI/maxresdefault.jpg)](https://youtu.be/T-D1KVIuvjA)
+[![Watch the video](https://img.youtube.com/vi/aZsgSvS33nI/maxresdefault.jpg)](https://www.youtube.com/watch?v=aZsgSvS33nI)
 

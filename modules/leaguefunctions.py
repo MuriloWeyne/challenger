@@ -2,13 +2,19 @@ import os
 import requests
 import time
 import json
+import asyncio
+import aiohttp
+
 
 from base64 import b64encode
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from aiohttp_retry import ExponentialRetry, RetryClient
 
 
-session = requests.Session()
+retry_options = ExponentialRetry(attempts=5, factor=0.5, statuses=[404, 500, 502, 503, 504])
+client_session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False))
+retry_client = RetryClient(client_session=client_session, retry_options=retry_options)
 
 
 def get_lock_file():
@@ -16,57 +22,59 @@ def get_lock_file():
 
     if os.path.exists(path_file):
         with open(path_file, encoding="UTF-8") as lock_file:
-                lock_file_data = lock_file.read().split(":")
-                return lock_file_data
+            return lock_file.read().split(":")
         
 def encrypt_headers():
-    while get_lock_file() == None:
+    while get_lock_file() is None:
         time.sleep(1)
     password = get_lock_file()[3]
     base64 = b64encode(bytes(f"riot:{password}", "UTF-8"))
     return {"Authorization": f"Basic {base64.decode('ASCII')}"}
 
 def get_url(end_point: str) -> str:
-    while get_lock_file() == None:
+    while get_lock_file() is None:
         time.sleep(1)
     method = get_lock_file()[4]
     port = get_lock_file()[2]
     return f"{method}://127.0.0.1:{port}/{end_point}"
 
-def get_summoner_id():
+async def get_summoner_id(client : RetryClient) -> str:
     summoner_ep = "lol-summoner/v1/current-summoner"
     headers = encrypt_headers()
     url = get_url(summoner_ep)
-    session.mount(url, HTTPAdapter(max_retries=Retry(connect=30, backoff_factor=0.5, status_forcelist=[404, 500, 502, 503, 504])))
-    response = session.get(url, verify=False, headers=headers).json()
-    return response["summonerId"]
+    response = await client.get(url, headers=headers)
+    json = await response.json()
+    await client.close()
+    return json["summonerId"]
 
-def get_summoner_puuid():
+async def get_summoner_puuid(client : RetryClient) -> str:
     summoner_ep = "lol-summoner/v1/current-summoner"
     headers = encrypt_headers()
     url = get_url(summoner_ep)
-    session.mount(url, HTTPAdapter(max_retries=Retry(connect=30, backoff_factor=0.5, status_forcelist=[404, 500, 502, 503, 504])))
-    response = session.get(url, verify=False, headers=headers).json()
-    return response["puuid"]
+    response = await client.get(url, headers=headers)
+    json = await response.json()
+    await client.close()
+    return json["puuid"]
 
-def get_summoner_data():
+async def get_summoner_data(client : RetryClient) -> str:
     summoner_ep = "lol-summoner/v1/current-summoner"
     headers = encrypt_headers()
     url = get_url(summoner_ep)
-    session.mount(url, HTTPAdapter(max_retries=Retry(connect=30, backoff_factor=0.5, status_forcelist=[404, 500, 502, 503, 504])))
-    response = session.get(url, verify=False, headers=headers).json()
-    summoner_name = response["displayName"]
-    summoner_level = response["summonerLevel"]
+    response = await client.get(url, headers=headers)
+    json = await response.json()
+    summoner_name = json["displayName"]
+    summoner_level = json["summonerLevel"]
+    await client.close()
     return summoner_name, summoner_level
 
-def get_ranked_info():
+async def get_ranked_info(client : RetryClient) -> str:
     summoner_puuid = get_summoner_puuid()
     ranked_ep = f"lol-ranked/v1/ranked-stats/{summoner_puuid}"
     headers = encrypt_headers()
     url = get_url(ranked_ep)
-    session.mount(url, HTTPAdapter(max_retries=Retry(connect=30, backoff_factor=0.5, status_forcelist=[404, 500, 502, 503, 504])))
-    response = session.get(url, verify=False, headers=headers).json()
-    ranked_stats = response["queueMap"]["RANKED_SOLO_5x5"]
+    response = await client.get(url, headers=headers)
+    json = await response.json()
+    ranked_stats = json["queueMap"]["RANKED_SOLO_5x5"]
     if ranked_stats["tier"] == "":
         summoner_rank = "UNRANKED"
         summoner_lp = "0"
@@ -79,26 +87,26 @@ def get_ranked_info():
         summoner_winrate = "0%"
     else:
         summoner_winrate = str(round((int(ranked_stats["wins"])/int(ranked_stats["wins"] + int(ranked_stats["losses"])))*100, 2)) + "%"
+    await client.close()
     return summoner_rank, summoner_lp, summoner_wins, summoner_losses, summoner_winrate
 
-def get_currencies():
+async def get_currencies(client : RetryClient) -> str:
     currency_ep = "lol-store/v1/wallet"
     headers = encrypt_headers()
     url = get_url(currency_ep)
-    session.mount(url, HTTPAdapter(max_retries=Retry(connect=30, backoff_factor=0.5, status_forcelist=[404, 500, 502, 503, 504])))
-    response = session.get(url, verify=False, headers=headers).json()
-    be_amount = response["ip"]
-    rp_amount = response["rp"]
+    response = await client.get(url, headers=headers)
+    json = await response.json()
+    be_amount = json["ip"]
+    rp_amount = json["rp"]
     if be_amount >= 1000:
-        be_amount = str(round(be_amount/1000, 2)) + "K"
+        be_amount = f"{str(round(be_amount / 1000, 2))}K"
     if rp_amount >= 1000:
-        rp_amount = str(round(rp_amount/1000, 2)) + "K"
+        rp_amount = f"{str(round(rp_amount / 1000, 2))}K"
     return be_amount, rp_amount
 
 def is_signed_in():
     login_ep = "lol-login/v1/session"
     headers = encrypt_headers()
     url = get_url(login_ep)
-    session.mount(url, HTTPAdapter(max_retries=Retry(connect=30, backoff_factor=0.5, status_forcelist=[404, 500, 502, 503, 504])))
-    response = session.get(url, verify=False, headers=headers)
+    response = requests.get(url, headers=headers, verify=False)
     return response.status_code
